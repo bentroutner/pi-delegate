@@ -49,6 +49,9 @@ pi-delegate/
 │       ├── pi-client.md      # Pi RPC communication
 │       ├── polling.md        # Polling strategy
 │       └── config.md         # Configuration system
+├── .env                      # Local environment variables (gitignored)
+├── .env.example              # Example environment file
+├── .gitignore                # Git ignore rules
 ├── package.json
 └── README.md
 ```
@@ -91,32 +94,78 @@ User runs: pi-delegate --task task.md --repo ./my-project
 
 ## Configuration
 
-### Config File (`~/.config/pi-delegate/config.json`)
-```json
-{
-  "jump": {
-    "host": "192.168.1.101",
-    "user": "ben",
-    "passwordFile": "~/.config/pi-delegate/jump-pass"
-  },
-  "pi": {
-    "host": "192.168.0.129",
-    "user": "ben",
-    "passwordFile": "~/.config/pi-delegate/pi-pass",
-    "tmuxSession": "pi-bot",
-    "workingDir": "/home/ben/pi-workspace"
-  },
-  "polling": {
-    "intervalSeconds": 180,
-    "maxAttempts": 20
-  }
-}
+### Environment Variables (dotenv)
+
+Uses `dotenv` npm package to load environment variables from `.env` file.
+
+**`.env` file (gitignored):**
+```bash
+# Pi-Delegate Configuration
+# Copy from .env.example and fill in your values
+
+# Jump Server
+JUMP_HOST=192.168.1.101
+JUMP_USER=ben
+JUMP_PASSWORD=your-jump-password
+
+# Pi Server
+PI_HOST=192.168.0.129
+PI_USER=ben
+PI_PASSWORD=your-pi-password
+PI_TMUX_SESSION=pi-bot
+PI_WORKING_DIR=/home/ben/pi-workspace
+
+# Polling
+POLL_INTERVAL_SECONDS=180
+MAX_POLL_ATTEMPTS=20
+
+# Optional
+VERBOSE=false
+DRY_RUN=false
 ```
 
-### Environment Variables
-- `PI_DELEGATE_CONFIG` — Path to config file
-- `PI_JUMP_PASSWORD` — Jump server password (optional)
-- `PI_PASSWORD` — Pi server password (optional)
+**`.env.example` (committed to repo):**
+```bash
+# Pi-Delegate Configuration
+# Copy this file to .env and fill in your actual values
+
+# Jump Server (intermediate hop)
+JUMP_HOST=192.168.1.101
+JUMP_USER=ben
+JUMP_PASSWORD=changeme
+
+# Pi Server (where Pi bot runs)
+PI_HOST=192.168.0.129
+PI_USER=ben
+PI_PASSWORD=changeme
+PI_TMUX_SESSION=pi-bot
+PI_WORKING_DIR=/home/ben/pi-workspace
+
+# Polling settings
+POLL_INTERVAL_SECONDS=180
+MAX_POLL_ATTEMPTS=20
+
+# Runtime options
+VERBOSE=false
+DRY_RUN=false
+```
+
+### Environment Variable Reference
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `JUMP_HOST` | Yes | — | Jump server IP/hostname |
+| `JUMP_USER` | Yes | — | Jump server username |
+| `JUMP_PASSWORD` | Yes | — | Jump server password |
+| `PI_HOST` | Yes | — | Pi server IP/hostname |
+| `PI_USER` | Yes | — | Pi server username |
+| `PI_PASSWORD` | Yes | — | Pi server password |
+| `PI_TMUX_SESSION` | No | `pi-bot` | Tmux session name for Pi |
+| `PI_WORKING_DIR` | No | `/home/ben/pi-workspace` | Working directory on Pi |
+| `POLL_INTERVAL_SECONDS` | No | `180` | Seconds between polls |
+| `MAX_POLL_ATTEMPTS` | No | `20` | Max polling attempts |
+| `VERBOSE` | No | `false` | Enable verbose logging |
+| `DRY_RUN` | No | `false` | Show commands without executing |
 
 ## CLI Interface
 
