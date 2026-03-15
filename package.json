@@ -9,7 +9,8 @@
   },
   "scripts": {
     "test": "mocha --require test/setup.js test/unit/",
-    "lint": "standard --env mocha --fix"
+    "lint": "standard --env mocha --fix",
+    "start": "node bin/pi-delegate"
   },
   "keywords": [
     "pi-bot",
