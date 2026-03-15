@@ -49,29 +49,33 @@ function parsePiStatus (output) {
   // Look for completion indicators in Pi's output
   const lines = output.split('\n')
 
-  // Check for error markers
-  const hasError = lines.some(line =>
-    line.includes('"isError":true') ||
-    line.includes('"type":"error"')
+  // Check for Pi system errors (not tool execution errors)
+  // Tool errors (isError in tool results) are normal - Pi handles them
+  // System errors indicate Pi itself crashed
+  const hasSystemError = lines.some(line =>
+    line.includes('"type":"error"') &&
+    !line.includes('"command":"') // Exclude tool result errors
   )
 
-  if (hasError) {
+  if (hasSystemError) {
     const errorLine = lines.find(line =>
-      line.includes('"isError":true') || line.includes('"type":"error"')
+      line.includes('"type":"error"') && !line.includes('"command":"')
     )
     return {
       complete: false,
       error: true,
-      errorMessage: errorLine || 'Unknown error'
+      errorMessage: errorLine || 'Unknown system error'
     }
   }
 
   // Check for completion markers
-  // Pi typically outputs turn_end or completion messages
-  const isComplete = lines.some(line =>
-    line.includes('"type":"turn_end"') &&
-    !lines.slice(lines.indexOf(line) + 1).some(l => l.includes('"type":"turn_start"'))
-  )
+  // Pi completes when it outputs turn_end and then goes idle
+  // (no new turn_start for a while)
+  const turnEndIndex = lines.findLastIndex(line => line.includes('"type":"turn_end"'))
+  const turnStartIndex = lines.findLastIndex(line => line.includes('"type":"turn_start"'))
+
+  // Complete if last turn_end is after last turn_start (Pi is idle)
+  const isComplete = turnEndIndex !== -1 && turnEndIndex > turnStartIndex
 
   return {
     complete: isComplete,
