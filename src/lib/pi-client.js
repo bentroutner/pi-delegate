@@ -5,6 +5,7 @@ const execAsync = promisify(exec)
 
 /**
  * Send a message to Pi bot via tmux
+ * Uses base64 encoding to safely transfer JSON through SSH hops
  * @param {Object} message - Message object to send
  * @param {Object} config - Configuration object
  * @param {boolean} dryRun - If true, only log commands
@@ -14,30 +15,24 @@ export async function sendToPi (message, config, dryRun = false) {
   const { jump, pi } = config
   const messageJson = JSON.stringify(message)
 
-  // Escape for shell safety
-  const escaped = messageJson
-    .replace(/\\/g, '\\\\')
-    .replace(/'/g, "'\\''")
-    .replace(/\n/g, '\\n')
+  // Base64 encode to safely pass through shells without escaping issues
+  const base64 = Buffer.from(messageJson).toString('base64')
 
   const sshpassJump = `sshpass -p '${jump.password}'`
 
-  // Load message into tmux buffer and paste to Pi session
-  const loadBuffer = `${sshpassJump} ssh -o StrictHostKeyChecking=no ${jump.user}@${jump.host} "${sshpassJump} ssh -o StrictHostKeyChecking=no ${pi.user}@${pi.host} 'printf '%s' '${escaped}' | tmux load-buffer -'"`
-
-  const pasteBuffer = `${sshpassJump} ssh -o StrictHostKeyChecking=no ${jump.user}@${jump.host} "${sshpassJump} ssh -o StrictHostKeyChecking=no ${pi.user}@${pi.host} 'tmux paste-buffer -t ${pi.tmuxSession}'"`
+  // Decode base64 and load into tmux buffer, then paste
+  // Use echo piped to base64 -d to avoid shell interpretation issues
+  const sendCommand = `${sshpassJump} ssh -o StrictHostKeyChecking=no ${jump.user}@${jump.host} "${sshpassJump} ssh -o StrictHostKeyChecking=no ${pi.user}@${pi.host} 'echo ${base64} | base64 -d | tmux load-buffer - && tmux paste-buffer -t ${pi.tmuxSession}'"`
 
   if (dryRun) {
     console.log('[DRY RUN] Would send to Pi:')
     console.log(`  Message: ${messageJson}`)
+    console.log(`  Base64: ${base64}`)
     return
   }
 
-  // Load buffer
-  await execAsync(loadBuffer)
-
-  // Paste to Pi session
-  await execAsync(pasteBuffer)
+  // Send in one command: decode base64, load buffer, paste
+  await execAsync(sendCommand)
 }
 
 /**
