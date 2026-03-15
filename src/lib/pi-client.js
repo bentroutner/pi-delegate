@@ -22,7 +22,8 @@ export async function sendToPi (message, config, dryRun = false) {
 
   // Decode base64 and load into tmux buffer, then paste
   // Use echo piped to base64 -d to avoid shell interpretation issues
-  const sendCommand = `${sshpassJump} ssh -o StrictHostKeyChecking=no ${jump.user}@${jump.host} "${sshpassJump} ssh -o StrictHostKeyChecking=no ${pi.user}@${pi.host} 'echo ${base64} | base64 -d | tmux load-buffer - && tmux paste-buffer -t ${pi.tmuxSession}'"`
+  // After pasting, send Enter key to submit the JSON to Pi
+  const sendCommand = `${sshpassJump} ssh -o StrictHostKeyChecking=no ${jump.user}@${jump.host} "${sshpassJump} ssh -o StrictHostKeyChecking=no ${pi.user}@${pi.host} 'echo ${base64} | base64 -d | tmux load-buffer - && tmux paste-buffer -t ${pi.tmuxSession} && tmux send-keys -t ${pi.tmuxSession} Enter'"`
 
   if (dryRun) {
     console.log('[DRY RUN] Would send to Pi:')
