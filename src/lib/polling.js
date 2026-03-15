@@ -1,4 +1,4 @@
-import { capturePiOutput } from './pi-client.js'
+import { capturePiOutput, getPiState, restartPi } from './pi-client.js'
 
 /**
  * Sleep for specified milliseconds
@@ -10,8 +10,9 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 /**
  * Poll Pi bot until task completes or max attempts reached
  * Detects completion when output stops changing (Pi is idle)
+ * Automatically manages Pi context window - restarts if stuck
  * @param {Object} config - Configuration object
- * @param {Function} onPoll - Callback for each poll (attempt, output)
+ * @param {Function} onPoll - Callback for each poll (attempt, output, state)
  * @returns {Promise<Object>} Final status
  */
 export async function pollUntilComplete (config, onPoll = () => {}) {
@@ -20,6 +21,8 @@ export async function pollUntilComplete (config, onPoll = () => {}) {
   let previousOutput = ''
   let unchangedCount = 0
   const requiredUnchanged = 2 // Output must be unchanged for 2 consecutive polls
+  const tokenThreshold = 55000 // Restart Pi if tokens exceed this
+  const stuckThreshold = 5 // Restart if unchanged for 5 polls (output may be stuck)
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     // Wait between polls
@@ -30,6 +33,10 @@ export async function pollUntilComplete (config, onPoll = () => {}) {
     const output = await capturePiOutput(config)
     const status = parsePiStatus(output)
 
+    // Check Pi state (token count)
+    const piState = await getPiState(config)
+    const tokenCount = piState?.tokenCount || 0
+
     // Check if output changed
     const outputChanged = output !== previousOutput
     if (!outputChanged) {
@@ -39,13 +46,26 @@ export async function pollUntilComplete (config, onPoll = () => {}) {
       previousOutput = output
     }
 
-    // Complete if output unchanged for required consecutive polls
+    // Determine Pi state
     const isIdle = unchangedCount >= requiredUnchanged
+    const isStuck = unchangedCount >= stuckThreshold
+    const isContextFull = tokenCount > tokenThreshold
 
-    onPoll(attempt, { ...status, isIdle }, output)
+    onPoll(attempt, { ...status, isIdle, isStuck, isContextFull, tokenCount }, output)
 
+    // Complete if idle and we saw our message
     if (isIdle && status.hasUserMessage) {
       return { complete: true, output }
+    }
+
+    // Handle Pi stuckness - restart if needed
+    if (isStuck || isContextFull) {
+      console.log(`\n⚠️  Pi appears stuck (${isStuck ? 'no progress' : 'context full'}). Restarting...`)
+      await restartPi(config)
+      console.log('✓ Pi restarted')
+      unchangedCount = 0
+      // Continue polling - task may need to be resent
+      continue
     }
 
     if (status.error) {
