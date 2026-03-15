@@ -1,0 +1,34 @@
+{
+  "name": "pi-delegate",
+  "version": "0.1.0",
+  "description": "CLI tool for delegating tasks to Pi bot",
+  "type": "module",
+  "main": "src/index.js",
+  "bin": {
+    "pi-delegate": "./bin/pi-delegate"
+  },
+  "scripts": {
+    "test": "mocha --require test/setup.js test/unit/",
+    "lint": "standard --env mocha --fix"
+  },
+  "keywords": [
+    "pi-bot",
+    "delegation",
+    "cli",
+    "automation"
+  ],
+  "author": "Ben",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^12.0.0"
+  },
+  "devDependencies": {
+    "chai": "^5.0.0",
+    "mocha": "^10.0.0",
+    "sinon": "^17.0.0",
+    "standard": "^17.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
