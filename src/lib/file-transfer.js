@@ -21,6 +21,10 @@ export async function transferToPi (localPath, remotePath, config, dryRun = fals
   const sshpassJump = `sshpass -p '${jump.password}'`
   const sshpassPi = `sshpass -p '${pi.password}'`
 
+  // Create remote directory if needed
+  const remoteDir = path.dirname(remotePath)
+  const mkdirCommand = `${sshpassJump} ssh -o StrictHostKeyChecking=no ${jump.user}@${jump.host} "${sshpassPi} ssh -o StrictHostKeyChecking=no ${pi.user}@${pi.host} 'mkdir -p ${remoteDir}'"`
+
   // Stage 1: Local → Jump
   const stage1 = `${sshpassJump} scp -o StrictHostKeyChecking=no ${localPath} ${jump.user}@${jump.host}:${tempPath}`
 
@@ -39,6 +43,9 @@ export async function transferToPi (localPath, remotePath, config, dryRun = fals
   }
 
   try {
+    // Create remote directory on Pi
+    await execAsync(mkdirCommand)
+
     // Stage 1: Copy to jump server
     await execAsync(stage1)
 
