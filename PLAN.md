@@ -205,18 +205,37 @@ Interactive setup wizard for configuration.
 
 ### File Transfer Module
 
-Uses `sshpass` + `scp` for two-stage transfer:
+Uses `sshpass` + `scp` for two-stage transfer with **automatic cleanup**:
 
 ```javascript
 async function transferToPi(localPath, remotePath) {
-  // Stage 1: Local → Jump
-  await scp(localPath, `${jumpUser}@${jumpHost}:/tmp/`)
+  const filename = path.basename(localPath)
+  const tempPath = `/tmp/pi-delegate-${Date.now()}-${filename}`
   
-  // Stage 2: Jump → Pi (via SSH command)
-  await ssh(jumpHost, 
-    `scp /tmp/${filename} ${piUser}@${piHost}:${remotePath}`)
+  try {
+    // Stage 1: Local → Jump
+    await scp(localPath, `${jumpUser}@${jumpHost}:${tempPath}`)
+    
+    // Stage 2: Jump → Pi (via SSH command)
+    await ssh(jumpHost, 
+      `scp ${tempPath} ${piUser}@${piHost}:${remotePath}`)
+    
+  } finally {
+    // Stage 3: Cleanup — always remove from jump server
+    // Jump server has limited disk space (11GB)
+    await ssh(jumpHost, `rm -f ${tempPath}`).catch(() => {
+      // Log warning but don't fail if cleanup fails
+      logger.warn(`Failed to cleanup ${tempPath} on jump server`)
+    })
+  }
 }
 ```
+
+**Cleanup guarantees:**
+- Uses `try/finally` to ensure cleanup even on transfer failure
+- Unique temp path with timestamp to avoid collisions
+- Cleanup failures are logged but don't fail the operation
+- Jump server space is preserved (critical — only 11GB available)
 
 ### Pi Client Module
 
@@ -269,12 +288,13 @@ async function pollUntilComplete() {
 | Max polls reached | Error with suggestion to check manually |
 | Network timeout | Retry with exponential backoff |
 
-## Security Considerations
+## Security & Resource Considerations
 
 1. **Password storage**: Use files with 0600 permissions, not command-line args
 2. **No logging of passwords**: Sanitize all output
 3. **SSH host key checking**: Disabled for LAN (configurable)
 4. **Temp file cleanup**: Remove files from jump server after transfer
+5. **Jump server disk space**: Automatic cleanup prevents filling 11GB limit
 
 ## Testing Strategy
 
