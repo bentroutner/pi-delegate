@@ -19,19 +19,21 @@ Current workflow involves manual, error-prone steps:
 
 ## Architecture
 
-### Core Components
+### Directory Structure
 
 ```
 pi-delegate/
 ├── src/
 │   ├── index.js              # CLI entry point
 │   ├── commands/
-│   │   └── delegate.js       # Main delegation command
+│   │   ├── delegate.js       # Main delegation command
+│   │   ├── status.js         # Pi status command
+│   │   └── config.js         # Config wizard command
 │   ├── lib/
 │   │   ├── file-transfer.js  # SCP via jump server
 │   │   ├── pi-client.js      # Pi bot RPC communication
 │   │   ├── polling.js        # Progress monitoring
-│   │   └── config.js         # Settings & credentials
+│   │   └── config-loader.js  # Settings & credentials
 │   └── utils/
 │       ├── ssh.js            # SSH command helpers
 │       └── logger.js         # Consistent output
@@ -39,9 +41,38 @@ pi-delegate/
 │   └── pi-delegate           # Executable
 ├── config/
 │   └── default.json          # Default configuration
+├── dev-docs/                 # Development documentation
+│   ├── progress/             # Daily progress logs
+│   │   └── MM-DD-YY.md       # Running log of changes
+│   └── documentation/        # Feature documentation
+│       ├── file-transfer.md  # Why/how of file transfer
+│       ├── pi-client.md      # Pi RPC communication
+│       ├── polling.md        # Polling strategy
+│       └── config.md         # Configuration system
 ├── package.json
 └── README.md
 ```
+
+### Development Documentation
+
+#### Progress Logs (`/dev-docs/progress/`)
+- One file per day: `MM-DD-YY.md`
+- Running log of changes, decisions, and considerations
+- Include nuance, trade-offs, and "why" behind decisions
+- Example: `03-15-26.md` for March 15, 2026
+
+#### Feature Documentation (`/dev-docs/documentation/`)
+- One file per major feature
+- Contains:
+  - **Purpose**: Why the feature exists
+  - **Architecture**: How it works
+  - **Walkthrough**: Code flow explanation
+  - **Edge Cases**: Known limitations and handling
+- Files:
+  - `file-transfer.md` — Two-stage SCP design
+  - `pi-client.md` — RPC communication patterns
+  - `polling.md` — Polling strategy and detection
+  - `config.md` — Configuration loading and validation
 
 ### Data Flow
 
