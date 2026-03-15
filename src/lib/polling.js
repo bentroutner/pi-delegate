@@ -45,13 +45,9 @@ export async function pollUntilComplete (config, onPoll = () => {}) {
  * @param {string} output - Tmux session output
  * @returns {Object} Status object
  */
-function parsePiStatus (output, verbose = false) {
+function parsePiStatus (output) {
   // Look for completion indicators in Pi's output
   const lines = output.split('\n')
-
-  if (verbose) {
-    console.log(`[DEBUG] Parsing ${lines.length} lines of output`)
-  }
 
   // Check for Pi system errors (not tool execution errors)
   // Tool errors (isError in tool results) are normal - Pi handles them
@@ -72,45 +68,29 @@ function parsePiStatus (output, verbose = false) {
     }
   }
 
-  // Find all turn_start and turn_end positions
-  const turnStarts = []
-  const turnEnds = []
-
-  lines.forEach((line, index) => {
-    if (line.includes('"type":"turn_start"')) {
-      turnStarts.push(index)
-    }
-    if (line.includes('"type":"turn_end"')) {
-      turnEnds.push(index)
-    }
-  })
-
-  if (verbose) {
-    console.log(`[DEBUG] Found ${turnStarts.length} turn_start, ${turnEnds.length} turn_end`)
-    if (turnStarts.length > 0) {
-      console.log(`[DEBUG] Last turn_start at line ${turnStarts[turnStarts.length - 1]}`)
-    }
-    if (turnEnds.length > 0) {
-      console.log(`[DEBUG] Last turn_end at line ${turnEnds[turnEnds.length - 1]}`)
-    }
-  }
-
   // Check for completion markers
-  // Pi completes when it outputs turn_end and then goes idle
-  // (no new turn_start for a while)
+  // Pi completes when it outputs a turn_end after processing the task
+  // Look for the pattern: user message → assistant response → turn_end
 
-  // Get last positions
-  const lastTurnStart = turnStarts.length > 0 ? turnStarts[turnStarts.length - 1] : -1
-  const lastTurnEnd = turnEnds.length > 0 ? turnEnds[turnEnds.length - 1] : -1
+  // Find the last user message (our prompt)
+  const userMessageIndex = lines.findLastIndex(line =>
+    line.includes('"role":"user"') && line.includes('"type":"message"')
+  )
 
-  // Complete if:
-  // 1. We have at least one turn_end
-  // 2. The last turn_end is after the last turn_start (or no turn_start)
-  const isComplete = lastTurnEnd !== -1 && lastTurnEnd > lastTurnStart
+  // Find turn_end markers after the user message
+  const turnEndsAfterMessage = lines
+    .slice(userMessageIndex)
+    .filter(line => line.includes('"type":"turn_end"'))
 
-  if (verbose) {
-    console.log(`[DEBUG] isComplete: ${isComplete} (lastTurnEnd=${lastTurnEnd}, lastTurnStart=${lastTurnStart})`)
-  }
+  // Find turn_start markers after the user message
+  const turnStartsAfterMessage = lines
+    .slice(userMessageIndex)
+    .filter(line => line.includes('"type":"turn_start"'))
+
+  // Complete if we have more turn_ends than turn_starts after our message
+  // This means Pi has finished processing and returned to idle
+  const isComplete = userMessageIndex !== -1 &&
+    turnEndsAfterMessage.length > turnStartsAfterMessage.length
 
   return {
     complete: isComplete,
