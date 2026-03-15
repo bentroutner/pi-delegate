@@ -162,8 +162,8 @@ DRY_RUN=false
 | `PI_PASSWORD` | Yes | — | Pi server password |
 | `PI_TMUX_SESSION` | No | `pi-bot` | Tmux session name for Pi |
 | `PI_WORKING_DIR` | No | `/home/ben/pi-workspace` | Working directory on Pi |
-| `POLL_INTERVAL_SECONDS` | No | `180` | Seconds between polls |
-| `MAX_POLL_ATTEMPTS` | No | `20` | Max polling attempts |
+| `POLL_INTERVAL_SECONDS` | No | `60` | Seconds between polls |
+| `MAX_POLL_ATTEMPTS` | No | `30` | Max polling attempts |
 | `VERBOSE` | No | `false` | Enable verbose logging |
 | `DRY_RUN` | No | `false` | Show commands without executing |
 
