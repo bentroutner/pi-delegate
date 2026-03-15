@@ -9,12 +9,17 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /**
  * Poll Pi bot until task completes or max attempts reached
+ * Detects completion when output stops changing (Pi is idle)
  * @param {Object} config - Configuration object
  * @param {Function} onPoll - Callback for each poll (attempt, output)
  * @returns {Promise<Object>} Final status
  */
 export async function pollUntilComplete (config, onPoll = () => {}) {
   const { intervalSeconds, maxAttempts } = config.polling
+
+  let previousOutput = ''
+  let unchangedCount = 0
+  const requiredUnchanged = 2 // Output must be unchanged for 2 consecutive polls
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     // Wait between polls
@@ -25,10 +30,22 @@ export async function pollUntilComplete (config, onPoll = () => {}) {
     const output = await capturePiOutput(config)
     const status = parsePiStatus(output)
 
-    onPoll(attempt, status, output)
+    // Check if output changed
+    const outputChanged = output !== previousOutput
+    if (!outputChanged) {
+      unchangedCount++
+    } else {
+      unchangedCount = 0
+      previousOutput = output
+    }
 
-    if (status.complete) {
-      return status
+    // Complete if output unchanged for required consecutive polls
+    const isIdle = unchangedCount >= requiredUnchanged
+
+    onPoll(attempt, { ...status, isIdle }, output)
+
+    if (isIdle && status.hasUserMessage) {
+      return { complete: true, output }
     }
 
     if (status.error) {
@@ -41,20 +58,16 @@ export async function pollUntilComplete (config, onPoll = () => {}) {
 
 /**
  * Parse Pi bot status from tmux output
- * Looks for completion markers in Pi's JSON responses
  * @param {string} output - Tmux session output
  * @returns {Object} Status object
  */
 function parsePiStatus (output) {
-  // Look for completion indicators in Pi's output
   const lines = output.split('\n')
 
   // Check for Pi system errors (not tool execution errors)
-  // Tool errors (isError in tool results) are normal - Pi handles them
-  // System errors indicate Pi itself crashed
   const hasSystemError = lines.some(line =>
     line.includes('"type":"error"') &&
-    !line.includes('"command":"') // Exclude tool result errors
+    !line.includes('"command":"')
   )
 
   if (hasSystemError) {
@@ -64,37 +77,19 @@ function parsePiStatus (output) {
     return {
       complete: false,
       error: true,
-      errorMessage: errorLine || 'Unknown system error'
+      errorMessage: errorLine || 'Unknown system error',
+      hasUserMessage: false
     }
   }
 
-  // Check for completion markers
-  // Pi completes when it outputs a turn_end after processing the task
-  // Look for the pattern: user message → assistant response → turn_end
-
-  // Find the last user message (our prompt)
-  const userMessageIndex = lines.findLastIndex(line =>
-    line.includes('"role":"user"') && line.includes('"type":"message"')
+  // Check if our user message was received
+  const hasUserMessage = lines.some(line =>
+    line.includes('"role":"user"') && line.includes('Read')
   )
 
-  // Find turn_end markers after the user message
-  const turnEndsAfterMessage = lines
-    .slice(userMessageIndex)
-    .filter(line => line.includes('"type":"turn_end"'))
-
-  // Find turn_start markers after the user message
-  const turnStartsAfterMessage = lines
-    .slice(userMessageIndex)
-    .filter(line => line.includes('"type":"turn_start"'))
-
-  // Complete if we have more turn_ends than turn_starts after our message
-  // This means Pi has finished processing and returned to idle
-  const isComplete = userMessageIndex !== -1 &&
-    turnEndsAfterMessage.length > turnStartsAfterMessage.length
-
   return {
-    complete: isComplete,
+    complete: false,
     error: false,
-    output: output.slice(-500) // Last 500 chars for context
+    hasUserMessage
   }
 }

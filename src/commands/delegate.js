@@ -63,7 +63,8 @@ export async function delegateCommand (options) {
     const result = await pollUntilComplete(
       config,
       (attempt, status, output) => {
-        console.log(`Poll ${attempt}/${config.polling.maxAttempts}: ${status.complete ? 'Complete!' : 'Still working...'}`)
+        const statusText = status.isIdle ? 'Idle (likely complete)' : 'Still working...'
+        console.log(`Poll ${attempt}/${config.polling.maxAttempts}: ${statusText}`)
         if (verbose && output) {
           console.log('--- Recent output ---')
           console.log(output.slice(-300))
